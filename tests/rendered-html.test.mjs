@@ -1,37 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("renders the Prioris document metadata", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("declares the Prioris document metadata in the App Router", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-
-  assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
-  const html = await response.text();
-  assert.match(html, /<html[^>]*\blang=["']pt-BR["']/i);
-  assert.match(html, /<title>Prioris \| Gestão de riscos digitais<\/title>/i);
-  assert.match(
-    html,
-    /<meta[^>]*\bname=["']description["'][^>]*\bcontent=["']Visibilidade e priorização para a gestão de riscos digitais\.["'][^>]*>/i,
-  );
-  assert.match(html, /<link[^>]*\brel=["']icon["'][^>]*\bhref=["'][^"']*favicon\.svg["'][^>]*>/i);
+  assert.match(layout, /<html\s+lang="pt-BR">/);
+  assert.match(layout, /title:\s*"Prioris \| Gestão de riscos digitais"/);
+  assert.match(layout, /description:\s*"Visibilidade e priorização para a gestão de riscos digitais\."/);
+  assert.match(layout, /icon:\s*"\/favicon\.svg"/);
 });

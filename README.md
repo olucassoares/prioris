@@ -1,10 +1,24 @@
 # Prioris
 
-Plataforma defensiva de gestão de riscos de segurança. O produto centraliza ativos, achados, prioridades de correção e indicadores executivos em um painel operacional.
+> Gestão defensiva de riscos digitais com priorização, SLA e rastreabilidade.
 
-**Aplicação em produção:** [Abrir Prioris](https://prioris-pi.vercel.app)
+[![Aplicação](https://img.shields.io/badge/demo-online-26c1d8?style=flat-square)](https://prioris-pi.vercel.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/olucassoares/prioris/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/olucassoares/prioris/actions/workflows/ci.yml)
+![Next.js](https://img.shields.io/badge/Next.js-16-111111?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-336791?style=flat-square)
 
-![Painel de riscos do Prioris](public/screenshots/dashboard.jpg)
+Plataforma defensiva que centraliza ativos, achados, prioridades de correção, responsáveis e indicadores executivos em um painel operacional.
+
+**[Abrir aplicação](https://prioris-pi.vercel.app)** · **[Arquitetura](docs/ARCHITECTURE.md)** · **[API](docs/API.md)** · **[Case study](docs/CASE_STUDY.md)**
+
+## Avaliação rápida
+
+1. Analise o score de risco, a conformidade de SLA e a fila de prioridades.
+2. Filtre vulnerabilidades, abra um achado e atualize seu plano de correção.
+3. Cadastre um ativo, consulte a trilha de auditoria e exporte o relatório.
+
+O principal ponto técnico é a priorização explicável: severidade, score, criticidade do ativo e prazo influenciam a ordem de tratamento.
 
 ## Contexto do produto
 

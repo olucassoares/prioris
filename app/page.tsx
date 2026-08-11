@@ -3,13 +3,18 @@ import { Activity, AlertTriangle, Bell, ChevronRight, Clock3, Download, FileBarC
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { PriorisMark } from "../components/PriorisMark";
 import { PriorityRationale } from "../components/PriorityRationale";
-import { assetIcon, formatDate, relativeDue, severityLabel, statusLabel, trends, viewCopy, type Asset, type DashboardData, type Finding, type FindingStatus, type Severity, type View } from "../components/PriorisModel";
+import { assetIcon, formatDate, relativeDue, severityLabel, statusLabel, trends, viewCopy, type DashboardData, type Finding, type FindingStatus, type Severity, type View } from "../components/PriorisModel";
 import { findTopPriority } from "../lib/prioritization";
 
 export default function Home(){
  const [data,setData]=useState<DashboardData|null>(null),[error,setError]=useState(""),[query,setQuery]=useState(""),[severity,setSeverity]=useState<"all"|Severity>("all"),[view,setView]=useState<View>("overview"),[selected,setSelected]=useState<Finding|null>(null),[modal,setModal]=useState<"finding"|"asset"|null>(null),[notice,setNotice]=useState(""),[nav,setNav]=useState(false),[period,setPeriod]=useState<keyof typeof trends>("30 dias");
  const load=async()=>{const r=await fetch("/api/dashboard",{cache:"no-store"});const b=await r.json() as DashboardData&{error?:string};if(!r.ok)throw new Error(b.error);setData(b);setError("")};
- useEffect(()=>{load().catch(e=>setError(e.message))},[]);
+ useEffect(()=>{
+  fetch("/api/dashboard",{cache:"no-store"})
+   .then(async r=>{const b=await r.json() as DashboardData&{error?:string};if(!r.ok)throw new Error(b.error);return b})
+   .then(setData)
+   .catch(e=>setError(e.message));
+ },[]);
  const findings=useMemo(()=>data?.findings.filter(f=>{const q=query.toLowerCase();return(!q||`${f.reference} ${f.title} ${f.assetName} ${f.assignedTo}`.toLowerCase().includes(q))&&(severity==="all"||f.severity===severity)})??[],[data,query,severity]);
  const assets=useMemo(()=>data?.assets.filter(a=>{const q=query.toLowerCase();return!q||`${a.name} ${a.owner} ${a.type}`.toLowerCase().includes(q)})??[],[data,query]);
  const top=data?findTopPriority(data.findings,data.assets):null;
