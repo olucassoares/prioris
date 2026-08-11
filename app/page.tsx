@@ -1,245 +1,43 @@
 "use client";
-
-import {
-  Activity,
-  AlertTriangle,
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  CircleDot,
-  Clock3,
-  Download,
-  FileBarChart,
-  Filter,
-  Gauge,
-  History,
-  LayoutDashboard,
-  ListChecks,
-  LoaderCircle,
-  Menu,
-  Plus,
-  Radar,
-  Save,
-  Search,
-  Server,
-  Settings,
-  ShieldAlert,
-  ShieldCheck,
-  Target,
-  X,
-} from "lucide-react";
+import { Activity, AlertTriangle, Bell, ChevronRight, Clock3, Download, FileBarChart, Filter, Gauge, LayoutDashboard, ListChecks, Menu, Plus, Radar, Search, Server, Settings, ShieldAlert, Target, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { PriorisMark } from "../components/PriorisMark";
 import { PriorityRationale } from "../components/PriorityRationale";
-import {
-  assetIcon,
-  formatDate,
-  relativeDue,
-  severityLabel,
-  statusLabel,
-  trends,
-  viewCopy,
-  type Asset,
-  type DashboardData,
-  type Finding,
-  type FindingStatus,
-  type Severity,
-  type View,
-} from "../components/PriorisModel";
+import { assetIcon, formatDate, relativeDue, severityLabel, statusLabel, trends, viewCopy, type Asset, type DashboardData, type Finding, type FindingStatus, type Severity, type View } from "../components/PriorisModel";
 import { findTopPriority } from "../lib/prioritization";
 
-export default function Home() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [period, setPeriod] = useState<keyof typeof trends>("30 dias");
-  const [query, setQuery] = useState("");
-  const [severity, setSeverity] = useState<"all" | Severity>("all");
-  const [selected, setSelected] = useState<Finding | null>(null);
-  const [mobileNav, setMobileNav] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [activeView, setActiveView] = useState<View>("overview");
-  const [assetCreateOpen, setAssetCreateOpen] = useState(false);
-  const [defaultDueDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    return date.toISOString().slice(0, 10);
-  });
-
-  async function loadDashboard(selectedId?: number) {
-    const response = await fetch("/api/dashboard", { cache: "no-store" });
-    const payload = await response.json() as DashboardData & { error?: string };
-    if (!response.ok) throw new Error(payload.error || "Não foi possível carregar os dados.");
-    setData(payload);
-    setError("");
-    if (selectedId) setSelected(payload.findings.find((finding) => finding.id === selectedId) || null);
-  }
-
-  useEffect(() => {
-    fetch("/api/dashboard", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json() as DashboardData & { error?: string };
-        if (!response.ok) throw new Error(payload.error || "Não foi possível carregar os dados.");
-        setData(payload);
-      })
-      .catch((caught: Error) => setError(caught.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filteredFindings = useMemo(() => (data?.findings || []).filter((finding) => {
-    const term = query.trim().toLowerCase();
-    const matchesSearch = !term || `${finding.reference} ${finding.title} ${finding.assetName}`.toLowerCase().includes(term);
-    return matchesSearch && (severity === "all" || finding.severity === severity);
-  }), [data, query, severity]);
-  const topPriority = data ? findTopPriority(data.findings, data.assets) : null;
-  const activeDescription = activeView === "overview" && data
-    ? `${data.summary.critical} ${data.summary.critical === 1 ? "risco crítico exige" : "riscos críticos exigem"} resposta · cobertura ativa em ${data.summary.monitoredAssets} ativos.`
-    : viewCopy[activeView].description;
-
-  const filteredAssets = useMemo(() => (data?.assets || []).filter((asset) => {
-    const term = query.trim().toLowerCase();
-    return !term || `${asset.name} ${asset.owner} ${asset.environment} ${asset.type}`.toLowerCase().includes(term);
-  }), [data, query]);
-
-  function showNotice(message: string) {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 2400);
-  }
-
-  async function createFinding(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!data) return;
-    const form = new FormData(event.currentTarget);
-    setSaving(true);
-    try {
-      const response = await fetch("/api/findings", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(form)),
-      });
-      const payload = await response.json() as { id?: number; error?: string };
-      if (!response.ok || !payload.id) throw new Error(payload.error || "Não foi possível registrar o achado.");
-      setCreateOpen(false);
-      await loadDashboard(payload.id);
-      showNotice("Achado registrado e adicionado à fila.");
-    } catch (caught) {
-      showNotice(caught instanceof Error ? caught.message : "Falha ao registrar o achado.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function updateFinding(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    const form = new FormData(event.currentTarget);
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/findings/${selected.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(form)),
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Não foi possível atualizar o plano.");
-      await loadDashboard(selected.id);
-      showNotice("Plano de correção atualizado com sucesso.");
-    } catch (caught) {
-      showNotice(caught instanceof Error ? caught.message : "Falha ao atualizar o plano.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function createAsset(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setSaving(true);
-    try {
-      const response = await fetch("/api/assets", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(form)),
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Não foi possível cadastrar o ativo.");
-      setAssetCreateOpen(false);
-      await loadDashboard();
-      showNotice("Ativo cadastrado e incluído no monitoramento.");
-    } catch (caught) {
-      showNotice(caught instanceof Error ? caught.message : "Falha ao cadastrar o ativo.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function openView(view: View) {
-    setActiveView(view);
-    setSeverity("all");
-    setQuery("");
-    setMobileNav(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  const points = trends[period].map((value, index, values) => `${(index / (values.length - 1)) * 100},${95 - value}`).join(" ");
-
-  return (
-    <main className="security-shell">
-      <aside className={`security-sidebar ${mobileNav ? "nav-open" : ""}`}>
-        <div className="security-brand"><span><PriorisMark /></span><div><strong>Prioris</strong><small>Gestão de riscos digitais</small></div><button onClick={() => setMobileNav(false)} aria-label="Fechar menu"><X size={19} /></button></div>
-        <nav aria-label="Navegação principal">
-          <p>OPERAÇÕES</p>
-          <button className={activeView === "overview" ? "active" : ""} onClick={() => openView("overview")}><LayoutDashboard size={18} /> Visão geral</button>
-          <button className={activeView === "findings" ? "active" : ""} onClick={() => openView("findings")}><ShieldAlert size={18} /> Vulnerabilidades <span>{data?.summary.open ?? 0}</span></button>
-          <button className={activeView === "assets" ? "active" : ""} onClick={() => openView("assets")}><Server size={18} /> Ativos</button>
-          <button className={activeView === "remediation" ? "active" : ""} onClick={() => openView("remediation")}><ListChecks size={18} /> Remediação</button>
-          <p>GOVERNANÇA</p>
-          <button className={activeView === "governance" ? "active" : ""} onClick={() => openView("governance")}><Target size={18} /> Controles</button>
-          <button className={activeView === "reports" ? "active" : ""} onClick={() => openView("reports")}><FileBarChart size={18} /> Relatórios</button>
-        </nav>
-        <div className="sidebar-security-status"><div><Radar size={18} /><span><strong>Nuvora Sistemas</strong><small>{data?.summary.monitoredAssets ?? "—"} ativos na base</small></span></div><i><span style={{width:data ? "100%" : "18%"}} /></i><small>Base demonstrativa · coleta manual</small></div>
-        <div className="security-user"><div>LS</div><span><strong>Lucas Soares</strong><small>Analista · Nuvora</small></span><ChevronDown size={15} /></div>
-      </aside>
-
-      {mobileNav && <button className="security-backdrop" onClick={() => setMobileNav(false)} aria-label="Fechar navegação" />}
-
-      <section className="security-workspace" id="overview">
-        <header className="security-topbar">
-          <button className="mobile-menu" onClick={() => setMobileNav(true)} aria-label="Abrir menu"><Menu size={20} /></button>
-          <label className="global-security-search"><Search size={17} /><input aria-label="Pesquisar" placeholder={activeView === "assets" ? "Pesquisar ativos e responsáveis..." : "Pesquisar ativos, CVEs e responsáveis..."} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-          <div className="topbar-security-actions"><span className="system-live"><i /> Base carregada</span><button aria-label="Notificações" onClick={() => showNotice(`${data?.summary.critical ?? 0} riscos críticos pendentes.`)}><Bell size={19} /><span /></button><button aria-label="Configurações" onClick={() => showNotice("As regras de prioridade usam CVSS, criticidade do ativo e prazo.")}><Settings size={19} /></button></div>
-        </header>
-
-        <div className="security-content">
-          <div className="security-heading"><div><p><Target size={13} /> {viewCopy[activeView].eyebrow}</p><h1>{viewCopy[activeView].title}</h1><span>{activeDescription}</span></div><div className="heading-actions"><button onClick={() => loadDashboard().then(() => showNotice("Base atualizada com sucesso.")).catch((caught: Error) => showNotice(caught.message))}><Activity size={16} /> Atualizar base</button>{activeView === "assets" ? <button className="primary-security-action" onClick={() => setAssetCreateOpen(true)}><Plus size={16} /> Novo ativo</button> : activeView === "reports" ? <a className="primary-security-action" href="/api/reports/export"><Download size={16} /> Exportar CSV</a> : activeView !== "governance" ? <button className="primary-security-action" onClick={() => setCreateOpen(true)}><Plus size={16} /> Novo achado</button> : null}</div></div>
-
-          {loading ? <section className="security-loading"><LoaderCircle className="spin" size={28} /><strong>Calculando a postura de segurança...</strong></section> : error || !data ? <section className="security-loading error"><AlertTriangle size={28} /><strong>{error}</strong></section> : <>
-            {activeView === "overview" && <>
-            <section className="security-metrics" aria-label="Indicadores de segurança">
-              <article className="risk-score-card"><div className="metric-label"><Gauge size={17} /> Score de risco <span>Alto</span></div><div className="score-content"><div className="score-ring" style={{ "--score": `${data.summary.riskScore * 3.6}deg` } as React.CSSProperties}><div><strong>{data.summary.riskScore}</strong><small>/100</small></div></div><div><span>Escala consolidada</span><small>CVSS, ativo e prazo</small><p>Quanto menor, melhor</p></div></div></article>
-              <article><div className="metric-label"><ShieldAlert size={17} /> Riscos críticos</div><strong className="metric-number critical-number">{data.summary.critical}</strong><div className="metric-foot"><span>{data.summary.overdue} fora do SLA</span><small>exigem ação imediata</small></div></article>
-              <article><div className="metric-label"><CircleDot size={17} /> Achados abertos</div><strong className="metric-number">{data.summary.open}</strong><div className="metric-foot positive"><span>{data.summary.open - data.summary.overdue} dentro do prazo</span><small>em {data.summary.monitoredAssets} ativos</small></div></article>
-              <article><div className="metric-label"><Clock3 size={17} /> Conformidade SLA</div><strong className="metric-number">{data.summary.slaCompliance}<small>%</small></strong><div className="metric-progress"><i><span style={{ width: `${data.summary.slaCompliance}%` }} /></i><small>meta: 90%</small></div></article>
-            </section>
-
-            <PriorityRationale reference={topPriority?.reference} title={topPriority?.title} asset={topPriority?.assetName} due={topPriority ? relativeDue(topPriority.dueAt) : undefined} onOpen={topPriority ? () => setSelected(topPriority) : undefined} />
-
-            <section className="security-main-grid">
-              <article className="security-panel trend-panel">
-                <div className="security-panel-heading"><div><h2>Evolução do risco</h2><p>Score consolidado da organização</p></div><div className="period-switch">{Object.keys(trends).map((item) => <button key={item} onClick={() => setPeriod(item as keyof typeof trends)} className={period === item ? "active" : ""}>{item}</button>)}</div></div>
-                <div className="risk-chart"><div className="chart-labels"><span>100</span><span>80</span><span>60</span><span>40</span></div><div className="chart-plot"><div className="target-line"><span>Meta 55</span></div><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-label={`Score atual ${data.summary.riskScore}`}><defs><linearGradient id="riskArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6b7cff" stopOpacity=".28"/><stop offset="100%" stopColor="#6b7cff" stopOpacity="0"/></linearGradient></defs><polygon points={`0,40 ${points} 100,40`} fill="url(#riskArea)"/><polyline points={points} fill="none" stroke="#6b7cff" strokeWidth="1.3" vectorEffect="non-scaling-stroke"/><circle cx="100" cy={95 - trends[period][trends[period].length - 1]} r="1.8" fill="#8792ff" stroke="white" strokeWidth=".8"/></svg><div className="chart-days"><span>Início</span><span>Hoje</span></div></div></div>
-              </article>
-
-              <article className="security-panel severity-panel">
-                <div className="security-panel-heading"><div><h2>Por gravidade</h2><p>Achados ativos</p></div><button onClick={() => setSeverity("all")}>Ver todos</button></div>
-                <div className="severity-content"><div className="severity-donut" style={{ "--critical": `${(data.summary.severity.critical / Math.max(data.summary.open, 1)) * 100}%`, "--high": `${((data.summary.severity.critical + data.summary.severity.high) / Math.max(data.summary.open, 1)) * 100}%`, "--medium": `${((data.summary.severity.critical + data.summary.severity.high + data.summary.severity.medium) / Math.max(data.summary.open, 1)) * 100}%` } as React.CSSProperties}><div><strong>{data.summary.open}</strong><span>abertos</span></div></div><div className="severity-legend">{(["critical", "high", "medium", "low"] as Severity[]).map((item) => <button key={item} onClick={() => setSeverity(item)}><i className={`severity-${item}`} /><span>{severityLabel[item]}</span><strong>{data.summary.severity[item]}</strong></button>)}</div></div>
-              </article>
-            </section>
-
-            <section className="security-lower-grid">
-              <article className="security-panel findings-panel" id="findings">
-                <div className="security-panel-heading"><div><h2>Fila de prioridades</h2><p>Achados ordenados por risco e prazo</p></div><div className="panel-actions"><button className="filter-trigger" onClick={() => setSeverity(severity === "all" ? "critical" : "all")}><Filter size={14} /> {severity === "all" ? "Filtrar" : severityLabel[severity]}</button><button className="add-finding" onClick={() => setCreateOpen(true)}><Plus size={14} /> Registrar</button></div></div>
-                <div className="findings-toolbar"><label><Search size={15} /><input aria-label="Buscar vulnerabilidades" placeholder="Buscar por referência, risco ou ativo" value={query} onChange={(event) => setQuery(event.target.value)} /></label><span>{filteredFindings.length} achados</span></div>
-                <div className="security-table-wrap"><table
+export default function Home(){
+ const [data,setData]=useState<DashboardData|null>(null),[error,setError]=useState(""),[query,setQuery]=useState(""),[severity,setSeverity]=useState<"all"|Severity>("all"),[view,setView]=useState<View>("overview"),[selected,setSelected]=useState<Finding|null>(null),[modal,setModal]=useState<"finding"|"asset"|null>(null),[notice,setNotice]=useState(""),[nav,setNav]=useState(false),[period,setPeriod]=useState<keyof typeof trends>("30 dias");
+ const load=async()=>{const r=await fetch("/api/dashboard",{cache:"no-store"});const b=await r.json() as DashboardData&{error?:string};if(!r.ok)throw new Error(b.error);setData(b);setError("")};
+ useEffect(()=>{load().catch(e=>setError(e.message))},[]);
+ const findings=useMemo(()=>data?.findings.filter(f=>{const q=query.toLowerCase();return(!q||`${f.reference} ${f.title} ${f.assetName} ${f.assignedTo}`.toLowerCase().includes(q))&&(severity==="all"||f.severity===severity)})??[],[data,query,severity]);
+ const assets=useMemo(()=>data?.assets.filter(a=>{const q=query.toLowerCase();return!q||`${a.name} ${a.owner} ${a.type}`.toLowerCase().includes(q)})??[],[data,query]);
+ const top=data?findTopPriority(data.findings,data.assets):null;
+ const flash=(text:string)=>{setNotice(text);setTimeout(()=>setNotice(""),2600)};
+ const open=(next:View)=>{setView(next);setQuery("");setSeverity("all");setNav(false)};
+ async function submit(path:string,event:FormEvent<HTMLFormElement>,method="POST"){event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget));const r=await fetch(path,{method,headers:{"content-type":"application/json"},body:JSON.stringify(body)});const b=await r.json() as {error?:string};if(!r.ok){flash(b.error??"Não foi possível concluir.");return}setModal(null);setSelected(null);await load();flash("Alteração registrada no histórico.")}
+ const points=trends[period].map((n,i,a)=>`${i/(a.length-1)*100},${95-n}`).join(" ");
+ return <main className="security-shell">
+  <aside className={`security-sidebar ${nav?"nav-open":""}`}><div className="security-brand"><span><PriorisMark/></span><div><strong>Prioris</strong><small>Gestão de riscos digitais</small></div><button onClick={()=>setNav(false)}><X/></button></div><nav><p>OPERAÇÕES</p><Nav active={view==="overview"} icon={<LayoutDashboard/>} text="Visão geral" click={()=>open("overview")}/><Nav active={view==="findings"} icon={<ShieldAlert/>} text="Vulnerabilidades" count={data?.summary.open} click={()=>open("findings")}/><Nav active={view==="assets"} icon={<Server/>} text="Ativos" click={()=>open("assets")}/><Nav active={view==="remediation"} icon={<ListChecks/>} text="Remediação" click={()=>open("remediation")}/><p>GOVERNANÇA</p><Nav active={view==="governance"} icon={<Target/>} text="Controles" click={()=>open("governance")}/><Nav active={view==="reports"} icon={<FileBarChart/>} text="Relatórios" click={()=>open("reports")}/></nav><div className="sidebar-status"><Radar/><div><strong>Nuvora Sistemas</strong><small>{data?.summary.monitoredAssets??"—"} ativos monitorados</small></div><i><span/></i><small>Base demonstrativa · coleta manual</small></div><div className="security-user"><i>LS</i><span><strong>Lucas Soares</strong><small>Analista de segurança</small></span></div></aside>
+  {nav&&<button className="security-backdrop" onClick={()=>setNav(false)}/>}<section className="security-workspace"><header className="security-topbar"><button className="mobile-menu" onClick={()=>setNav(true)}><Menu/></button><label><Search/><input placeholder="Pesquisar risco, ativo ou responsável..." value={query} onChange={e=>setQuery(e.target.value)}/></label><div><span className="system-live"><i/>Base carregada</span><button onClick={()=>flash(`${data?.summary.critical??0} riscos críticos pendentes.`)}><Bell/></button><button onClick={()=>flash("Prioridade considera CVSS, ativo e prazo.")}><Settings/></button></div></header>
+  <div className="security-content"><section className="security-heading"><div><p><Target/> {viewCopy[view].eyebrow}</p><h1>{viewCopy[view].title}</h1><span>{viewCopy[view].description}</span></div><div><button onClick={()=>load().then(()=>flash("Base atualizada."))}><Activity/>Atualizar</button>{view==="assets"?<button className="primary" onClick={()=>setModal("asset")}><Plus/>Novo ativo</button>:view==="reports"?<a className="primary" href="/api/reports/export"><Download/>Exportar CSV</a>:view!=="governance"&&<button className="primary" onClick={()=>setModal("finding")}><Plus/>Novo achado</button>}</div></section>
+  {!data&&!error?<div className="state">Calculando a postura de segurança...</div>:error?<div className="state error"><AlertTriangle/>{error}</div>:data&&<>
+   {view==="overview"&&<><section className="security-metrics"><article className="score"><header><Gauge/>Score de risco <span>Alto</span></header><div><i style={{"--score":`${data.summary.riskScore*3.6}deg`} as React.CSSProperties}><b>{data.summary.riskScore}</b><small>/100</small></i><p><strong>Escala consolidada</strong><span>CVSS, ativo e prazo</span><small>Quanto menor, melhor</small></p></div></article><Metric icon={<ShieldAlert/>} label="Riscos críticos" value={data.summary.critical} note={`${data.summary.overdue} fora do SLA`} danger/><Metric icon={<Target/>} label="Achados abertos" value={data.summary.open} note={`${data.summary.open-data.summary.overdue} dentro do prazo`}/><Metric icon={<Clock3/>} label="Conformidade SLA" value={`${data.summary.slaCompliance}%`} note="meta interna: 90%"/></section><PriorityRationale reference={top?.reference} title={top?.title} asset={top?.assetName} due={top?relativeDue(top.dueAt):undefined} onOpen={top?()=>setSelected(top):undefined}/><section className="overview-grid"><Panel title="Evolução do risco" subtitle="Score consolidado da organização" action={<select value={period} onChange={e=>setPeriod(e.target.value as keyof typeof trends)}>{Object.keys(trends).map(p=><option key={p}>{p}</option>)}</select>}><div className="risk-chart"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polygon points={`0,40 ${points} 100,40`}/><polyline points={points}/></svg><span>Início</span><span>Hoje</span></div></Panel><Panel title="Por gravidade" subtitle="Achados ativos"><div className="severity-list">{(["critical","high","medium","low"] as Severity[]).map(s=><button onClick={()=>{setSeverity(s);open("findings")}} key={s}><i className={s}/><span>{severityLabel[s]}</span><strong>{data.summary.severity[s]}</strong></button>)}</div></Panel></section><Findings rows={findings} select={setSelected}/></>}
+   {view==="findings"&&<><div className="filter-row"><Filter/>Filtrar gravidade{(["all","critical","high","medium","low"] as const).map(s=><button className={severity===s?"active":""} onClick={()=>setSeverity(s)} key={s}>{s==="all"?"Todas":severityLabel[s]}</button>)}</div><Findings rows={findings} select={setSelected}/></>}
+   {view==="assets"&&<Panel title="Inventário monitorado" subtitle={`${assets.length} ativos encontrados`}><div className="asset-grid">{assets.map(a=><article key={a.id}><span>{assetIcon(a.type,20)}</span><div><h3>{a.name}</h3><p>{a.type} · {a.environment}</p><small>Responsável: {a.owner}</small></div><b className={a.status}>{a.status==="healthy"?"Saudável":a.status==="attention"?"Atenção":"Crítico"}</b></article>)}</div></Panel>}
+   {view==="remediation"&&<Panel title="Planos de correção" subtitle="Responsabilidades e prazos dos achados ativos"><div className="remediation-list">{data.findings.filter(f=>!["resolved","accepted"].includes(f.status)).map(f=><button key={f.id} onClick={()=>setSelected(f)}><i className={f.severity}/><div><strong>{f.title}</strong><small>{f.assignedTo||"Sem responsável"} · {relativeDue(f.dueAt)}</small></div><span>{statusLabel[f.status]}</span><ChevronRight/></button>)}</div></Panel>}
+   {view==="governance"&&<div className="control-grid">{[{t:"Gestão de vulnerabilidades",v:84},{t:"Inventário de ativos",v:92},{t:"Tratamento dentro do SLA",v:data.summary.slaCompliance},{t:"Rastreabilidade de mudanças",v:100}].map(c=><article key={c.t}><Target/><h3>{c.t}</h3><strong>{c.v}%</strong><i><span style={{width:`${c.v}%`}}/></i><p>Controle acompanhado pela equipe responsável.</p></article>)}</div>}
+   {view==="reports"&&<><section className="security-metrics"><Metric icon={<Gauge/>} label="Score atual" value={data.summary.riskScore} note="escala de 0 a 100"/><Metric icon={<ShieldAlert/>} label="Pendências" value={data.summary.open} note="achados ainda ativos"/><Metric icon={<Clock3/>} label="Fora do SLA" value={data.summary.overdue} note="exigem replanejamento" danger/><Metric icon={<Server/>} label="Ativos" value={data.summary.monitoredAssets} note="itens monitorados"/></section><Panel title="Últimas atividades" subtitle="Trilha de auditoria da organização"><div className="audit-list">{data.auditEvents.map(e=><article key={e.id}><Activity/><div><strong>{e.details}</strong><small>{e.actor} · {formatDate(e.createdAt)}</small></div></article>)}</div></Panel></>}
+  </>}
+  </div></section>
+  {selected&&<Modal title={selected.reference} close={()=>setSelected(null)}><div className="finding-detail"><span className={`severity ${selected.severity}`}>{severityLabel[selected.severity]}</span><h2>{selected.title}</h2><p>{selected.description}</p><dl><div><dt>Ativo</dt><dd>{selected.assetName}</dd></div><div><dt>Prazo</dt><dd>{relativeDue(selected.dueAt)}</dd></div><div><dt>Correção</dt><dd>{selected.remediation}</dd></div></dl><form onSubmit={e=>submit(`/api/findings/${selected.id}`,e,"PATCH")}><label>Status<select name="status" defaultValue={selected.status}>{(["open","in_progress","resolved","accepted"] as FindingStatus[]).map(s=><option value={s} key={s}>{statusLabel[s]}</option>)}</select></label><label>Responsável<input name="assignedTo" defaultValue={selected.assignedTo??"Equipe Plataforma"} required/></label><label>Novo prazo<input name="dueAt" type="date" defaultValue={selected.dueAt.slice(0,10)} required/></label><button className="primary">Salvar plano</button></form></div></Modal>}
+  {modal==="finding"&&data&&<Modal title="Registrar achado" close={()=>setModal(null)}><form className="modal-form" onSubmit={e=>submit("/api/findings",e)}><label>Título<input name="title" required minLength={4}/></label><label>Ativo<select name="assetId">{data.assets.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>Gravidade<select name="severity"><option value="critical">Crítica</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label><label>CVSS<input name="score" type="number" min="0" max="10" step=".1" required/></label><label>Origem<input name="source" defaultValue="Revisão manual" required/></label><label>Responsável<input name="assignedTo" defaultValue="Equipe Plataforma" required/></label><label>Prazo<input name="dueAt" type="date" required/></label><label className="wide">Descrição<textarea name="description" required/></label><label className="wide">Plano de correção<textarea name="remediation" required/></label><button className="primary">Registrar achado</button></form></Modal>}
+  {modal==="asset"&&<Modal title="Cadastrar ativo" close={()=>setModal(null)}><form className="modal-form" onSubmit={e=>submit("/api/assets",e)}><label>Nome<input name="name" required/></label><label>Responsável<input name="owner" required/></label><label>Tipo<select name="type"><option value="application">Aplicação</option><option value="api">API</option><option value="database">Banco</option><option value="server">Servidor</option><option value="cloud">Cloud</option></select></label><label>Ambiente<select name="environment"><option value="production">Produção</option><option value="staging">Homologação</option><option value="development">Desenvolvimento</option></select></label><label>Criticidade<select name="criticality"><option value="critical">Crítica</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label><input type="hidden" name="status" value="healthy"/><button className="primary">Cadastrar ativo</button></form></Modal>}
+  {notice&&<div className="notice">{notice}</div>}
+ </main>
+}
+function Nav({active,icon,text,count,click}:{active:boolean;icon:React.ReactNode;text:string;count?:number;click:()=>void}){return <button className={active?"active":""} onClick={click}>{icon}{text}{count!==undefined&&<span>{count}</span>}</button>}
+function Metric({icon,label,value,note,danger}:{icon:React.ReactNode;label:string;value:string|number;note:string;danger?:boolean}){return <article><header>{icon}{label}</header><strong className={danger?"danger":""}>{value}</strong><p>{note}</p></article>}
+function Panel({title,subtitle,action,children}:{title:string;subtitle:string;action?:React.ReactNode;children:React.ReactNode}){return <section className="security-panel"><header><div><h2>{title}</h2><p>{subtitle}</p></div>{action}</header>{children}</section>}
+function Findings({rows,select}:{rows:Finding[];select:(f:Finding)=>void}){return <Panel title="Fila de prioridades" subtitle="Achados ordenados por risco e prazo"><div className="table-wrap"><table><thead><tr><th>Achado</th><th>Gravidade</th><th>Ativo</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>{rows.map(f=><tr key={f.id} onClick={()=>select(f)}><td><strong>{f.reference}</strong><small>{f.title}</small></td><td><span className={`severity ${f.severity}`}>{severityLabel[f.severity]}</span></td><td>{f.assetName}</td><td>{f.assignedTo||"Não atribuído"}</td><td>{relativeDue(f.dueAt)}</td><td>{statusLabel[f.status]}</td></tr>)}</tbody></table>{!rows.length&&<div className="state">Nenhum achado encontrado.</div>}</div></Panel>}
+function Modal({title,close,children}:{title:string;close:()=>void;children:React.ReactNode}){return <><button className="modal-backdrop" onClick={close}/><aside className="security-modal"><header><div><small>PRIORIS · OPERAÇÃO</small><h2>{title}</h2></div><button onClick={close}><X/></button></header>{children}</aside></>}
