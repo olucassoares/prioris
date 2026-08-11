@@ -14,7 +14,7 @@ Plataforma defensiva que centraliza ativos, achados, prioridades de correção, 
 
 ## Avaliação rápida
 
-1. Analise o score de risco, a conformidade de SLA e a fila de prioridades.
+1. Analise o score de risco, a conformidade de SLA e a justificativa da próxima prioridade.
 2. Filtre vulnerabilidades, abra um achado e atualize seu plano de correção.
 3. Cadastre um ativo, consulte a trilha de auditoria e exporte o relatório.
 
@@ -34,6 +34,7 @@ Informações de segurança espalhadas em planilhas e mensagens dificultam a pri
 - distribuição de achados por severidade;
 - visão de ativos monitorados e sua postura de segurança;
 - tabela pesquisável e filtrável de prioridades;
+- explicação visível da regra usada para escolher a próxima ação;
 - painel lateral com contexto e recomendação de correção;
 - gráficos interativos para períodos de 7, 30 e 90 dias;
 - dados persistidos em PostgreSQL;
@@ -118,7 +119,7 @@ npm run typecheck
 npm run build
 ```
 
-Os testes cobrem identidade nas operações protegidas, validação de ativos e achados, regras do workflow, geração de CSV e resposta das principais rotas. A jornada de navegador cadastra um ativo e confirma a persistência depois de recarregar.
+Os testes cobrem identidade nas operações protegidas, validação de ativos e achados, regras do workflow, geração de CSV e resposta das principais rotas. A jornada de navegador cadastra um ativo e confirma a persistência depois de recarregar usando PostgreSQL temporário no CI.
 
 ## Roadmap
 
