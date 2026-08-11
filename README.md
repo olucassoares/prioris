@@ -2,6 +2,8 @@
 
 Plataforma defensiva de gestão de riscos de segurança. O produto centraliza ativos, achados, prioridades de correção e indicadores executivos em um painel operacional.
 
+**Aplicação em produção:** [Abrir Prioris](https://prioris-pi.vercel.app)
+
 ![Painel de riscos do Prioris](public/screenshots/dashboard.jpg)
 
 ## Contexto do produto
